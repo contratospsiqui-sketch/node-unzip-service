@@ -1,10 +1,10 @@
-import express from "express";
-import AdmZip from "adm-zip";
+const express = require("express");
+const AdmZip = require("adm-zip");
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
-app.post("/unzip", async (req, res) => {
+app.post("/unzip", (req, res) => {
   try {
     const { filename, filedata } = req.body;
     if (!filedata) throw new Error("No se recibió archivo");

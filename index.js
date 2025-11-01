@@ -1,44 +1,28 @@
-const express = require("express");
-const multer = require("multer");
-const unzipper = require("unzipper");
-const fs = require("fs");
-const path = require("path");
+import express from "express";
+import AdmZip from "adm-zip";
 
 const app = express();
-const upload = multer({ dest: "uploads/" });
-const PORT = process.env.PORT || 3000;
+app.use(express.json({ limit: "10mb" }));
 
-// Ruta principal para recibir el ZIP
-app.post("/unzip", upload.single("file"), async (req, res) => {
+app.post("/unzip", async (req, res) => {
   try {
-    const filePath = req.file.path;
-    const extractPath = path.join("extracted", Date.now().toString());
-    fs.mkdirSync(extractPath, { recursive: true });
+    const { filename, filedata } = req.body;
+    if (!filedata) throw new Error("No se recibió archivo");
 
-    // Extraer los archivos del ZIP
-    await fs.createReadStream(filePath)
-      .pipe(unzipper.Extract({ path: extractPath }))
-      .promise();
+    const buffer = Buffer.from(filedata, "base64");
+    const zip = new AdmZip(buffer);
+    const entries = zip.getEntries();
 
-    // Generar lista de archivos extraídos
-    const files = fs.readdirSync(extractPath).map(f => ({
-      name: f,
-      url: `${req.protocol}://${req.get("host")}/files/${path.basename(extractPath)}/${f}`
+    const files = entries.map(e => ({
+      name: e.entryName,
+      content: e.getData().toString("base64")
     }));
 
-    // Enviar respuesta con los enlaces de descarga
-    res.json({ success: true, files });
-
-    // Limpiar archivo temporal
-    fs.unlinkSync(filePath);
+    res.json({ files });
   } catch (err) {
-    console.error("❌ Error al procesar ZIP:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Error al descomprimir:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Servir los archivos extraídos
-app.use("/files", express.static("extracted"));
-
-// Iniciar el servidor
-app.listen(PORT, () => console.log(`✅ Microservicio ejecutándose en puerto ${PORT}`));
+app.listen(10000, () => console.log("✅ Microservicio ejecutándose en puerto 10000"));
